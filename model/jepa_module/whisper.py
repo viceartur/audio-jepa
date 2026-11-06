@@ -13,3 +13,4 @@ class Whisper():
     @property
     def processor(self):
         return self.__processor
+    

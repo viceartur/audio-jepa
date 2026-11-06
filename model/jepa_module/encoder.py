@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from pos_enc import get_2d_sincos_pos_enc
-from mask import get_mask_indices_2d
+from model.utils.pos_enc import get_2d_sincos_pos_enc
+from model.utils.mask import get_mask_indices_2d
 
 class PatchEmbed(nn.Module):
     def __init__(self, input_size=(128, 3000), patch_size=(16, 16), in_chans=1, embed_dim=None):
@@ -75,6 +75,7 @@ class ViT_Base(nn.Module):
 class AudioEncoder(nn.Module):
     def __init__(self, embed_dim):
         super().__init__()
+
         self.patch_embed = PatchEmbed(embed_dim=embed_dim)
         self.vit_encoder = ViT_Base(embed_dim=embed_dim)
 

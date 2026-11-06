@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from pos_enc import get_2d_sincos_pos_enc
+from model.utils.pos_enc import get_2d_sincos_pos_enc
 
 class Predictor(nn.Module):
     def __init__(self, encoder_dim=None, embed_dim=None, depth=6, num_heads=12, mlp_ratio=4.0, dropout=0.0):

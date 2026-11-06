@@ -10,10 +10,10 @@ from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 import copy
 import math
 
-from dataset import AbstractDataset
-from whisper import Whisper
-from encoder import AudioEncoder
-from predictor import Predictor
+from model.dataset import AbstractDataset
+from model.jepa_module.whisper import Whisper
+from model.jepa_module.encoder import AudioEncoder
+from model.jepa_module.predictor import Predictor
 
 CHECKPOINT_PATH = "best_model_weights.pth"
 EMBED_DIM = 384
@@ -35,40 +35,36 @@ def main():
     processor = w.processor
 
     # Development
-    # ds_train_100 = AbstractDataset(ds["train.100"].select(range(100)), processor)
-    # ds_val = AbstractDataset(ds["validation"].select(range(20)), processor)
-    # ds_test = AbstractDataset(ds["test"].select(range(20)), processor)
+    ds_train_100 = AbstractDataset(ds["train.100"].select(range(100)), processor)
+    ds_val = AbstractDataset(ds["validation"].select(range(20)), processor)
+    ds_test = AbstractDataset(ds["test"].select(range(20)), processor)
 
     # Production
-    ds_train_100 = AbstractDataset(ds["train.100"], processor)
-    ds_val = AbstractDataset(ds["validation"], processor)
-    ds_test = AbstractDataset(ds["test"], processor)
+    # ds_train_100 = AbstractDataset(ds["train.100"], processor)
+    # ds_val = AbstractDataset(ds["validation"], processor)
+    # ds_test = AbstractDataset(ds["test"], processor)
 
     # JEPA model components
     ctx_encoder = AudioEncoder(embed_dim=EMBED_DIM).to(whisper_model.device)
     predictor = Predictor(encoder_dim=EMBED_DIM, embed_dim=PREDICTOR_HIDDEN).to(whisper_model.device)
-
-    # Target Encoder's architecture is the same as Context Encoder,
-    # gradients are disabled, parameters are updated via EMA.
     target_encoder = copy.deepcopy(ctx_encoder)
     for param in target_encoder.parameters():
         param.requires_grad = False
 
-    # Match input and label size for the dataset
     def whisper_collate_fn(batch):
-        input_features = [item["input_features"].squeeze(0) for item in batch]
-        input_features = torch.stack(input_features) # B x 128 x 3000
-        labels = [item["label"] for item in batch]
-        labels_padded = pad_sequence(labels, batch_first=True, padding_value=-100)
-        speaker_ids = [item["speaker_id"] for item in batch]
-        chapter_ids = [item["chapter_id"] for item in batch]
-        
-        return {
-            "input_features": input_features,
-            "labels": labels_padded,
-            "speaker_id": speaker_ids,
-            "chapter_id": chapter_ids
-        }
+            input_features = [item["input_features"].squeeze(0) for item in batch]
+            input_features = torch.stack(input_features) # B x 128 x 3000
+            labels = [item["label"] for item in batch]
+            labels_padded = pad_sequence(labels, batch_first=True, padding_value=-100)
+            speaker_ids = [item["speaker_id"] for item in batch]
+            chapter_ids = [item["chapter_id"] for item in batch]
+                
+            return {
+                "input_features": input_features,
+                "labels": labels_padded,
+                "speaker_id": speaker_ids,
+                "chapter_id": chapter_ids
+                }
 
     batch_size = 2**7
     train_100 = DataLoader(ds_train_100, batch_size=batch_size, shuffle=True, collate_fn=whisper_collate_fn, num_workers=8)
@@ -76,12 +72,13 @@ def main():
     test = DataLoader(ds_test, batch_size=batch_size, shuffle=True, collate_fn=whisper_collate_fn, num_workers=8)
 
     # Training settings
-    num_epochs = 20
+    num_epochs = 5
     loss_fn = nn.MSELoss()
 
     # Optimizer
     def get_parameter_groups(model_list, weight_decay):
-        decay, no_decay = [], []
+        no_decay = list()
+        decay = list()
         for model in model_list:
             for name, param in model.named_parameters():
                 if not param.requires_grad:
@@ -92,9 +89,9 @@ def main():
                 else:
                     decay.append(param)
         return [
-            {'params': decay, 'weight_decay': weight_decay},
-            {'params': no_decay, 'weight_decay': 0.0}
-            ]
+             {'params': decay, 'weight_decay': weight_decay},
+             {'params': no_decay, 'weight_decay': 0.0}
+             ]
 
     param_groups = get_parameter_groups([ctx_encoder, predictor], weight_decay=0.05)
     lr = 3e-4
