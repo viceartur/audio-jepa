@@ -1,6 +1,6 @@
 import torch
 
-from model.jepa_module.whisper import Whisper
+from jepa_module.whisper import Whisper
 
 w = Whisper()
 whisper_model = w.whisper_model

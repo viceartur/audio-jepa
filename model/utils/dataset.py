@@ -1,10 +1,12 @@
 from torch.utils.data import Dataset
 import torch
+from utils.ctc_vocab import ctc_tokenizer
 
 class AbstractDataset(Dataset):
-    def __init__(self, ds_split, processor):
+    def __init__(self, ds_split, processor, tokenize_text_ctc=False):
         self.ds = ds_split
         self.processor = processor
+        self.tokenize_text_ctc = tokenize_text_ctc
 
     def __len__(self):
         return len(self.ds)
@@ -18,8 +20,12 @@ class AbstractDataset(Dataset):
             return_tensors="pt"
         )
         input_features = inputs.input_features
-        label_out = self.processor(text=sample["text"])
-        label = torch.tensor(label_out["input_ids"])
+
+        if self.tokenize_text_ctc:
+            label = ctc_tokenizer(sample["text"])
+        else:
+            label_out = self.processor(text=sample["text"])
+            label = torch.tensor(label_out["input_ids"])
         
         return {
             "input_features": input_features,

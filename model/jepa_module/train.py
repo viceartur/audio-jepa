@@ -9,8 +9,9 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 import copy
 import math
+from dotenv import load_dotenv
 
-from model.dataset import AbstractDataset
+from model.utils.dataset import AbstractDataset
 from model.jepa_module.whisper import Whisper
 from model.jepa_module.encoder import AudioEncoder
 from model.jepa_module.predictor import Predictor
@@ -20,6 +21,7 @@ EMBED_DIM = 384
 PREDICTOR_HIDDEN = 192
 
 def main():
+    load_dotenv()
     hf_token = os.getenv("HF_TOKEN")
     if hf_token is None:
         raise ValueError("HF_TOKEN environment variable is not set.")
@@ -29,7 +31,8 @@ def main():
     ds = load_dataset("openslr/librispeech_asr", "clean")
     # keys: ['test', 'train.100', 'train.360', 'validation']
 
-    # Whisper
+    # Whisper processor
+    # Used as an audio and text tokenizer
     w = Whisper()
     whisper_model = w.whisper_model
     processor = w.processor
